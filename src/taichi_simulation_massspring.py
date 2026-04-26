@@ -8,18 +8,12 @@ import math
 import numpy as np
 import os
 
-# its always the same number.. if you set the seed
-# random.seed(11)
-# print(random.random())
-# print(np.random.rand())
-
 random.seed(0)
 np.random.seed(0)
 real = ti.f32
-print(real)
 
 # ti.init(default_fp=real, arch=ti.metal, flatten_if=True)
-ti.init(default_fp=real, arch=ti.cpu, debug = True, flatten_if=True)
+ti.init(default_fp=real, arch=ti.metal, debug = False, flatten_if=True)
 max_steps = 4096
 vis_interval = 256
 output_vis_interval = 8
@@ -31,8 +25,6 @@ assert steps * 2 <= max_steps
 scalar = lambda: ti.field(dtype=real)
 # comprises of 2D vectors
 vec = lambda: ti.Vector.field(2, dtype=real)
-print(scalar)
-print(vec)
 loss = scalar()
 
 # have yet to declare
@@ -220,9 +212,9 @@ def forward(output=None, visualize=True):
     goal[None] = [0.9, 0.2]
 
     interval = vis_interval
-    if output:
-        interval = output_vis_interval
-        os.makedirs('mass_spring/{}/'.format(output), exist_ok=True)
+    # if output:
+    #     interval = output_vis_interval
+    #     os.makedirs('mass_spring/{}/'.format(output), exist_ok=True)
 
     total_steps = steps if not output else steps * 2
 
@@ -296,7 +288,7 @@ def setup_robot(objects, springs):
     n_springs = len(springs)
     allocate_fields()
 
-    print('n_objects=', n_objects, '   n_springs=', n_springs)
+    # print('n_objects=', n_objects, '   n_springs=', n_springs)
 
     for i in range(n_objects):
         x[0, i] = objects[i]
@@ -310,6 +302,7 @@ def setup_robot(objects, springs):
         spring_actuation[i] = s[4]
 
 
+# im here.
 def optimize(toi, visualize):
     global use_toi
     use_toi = toi
@@ -332,7 +325,7 @@ def optimize(toi, visualize):
         with ti.ad.Tape(loss):
             forward(visualize=visualize)
 
-        print('Iter=', iter, 'Loss=', loss[None])
+        # print('Iter=', iter, 'Loss=', loss[None])
 
         total_norm_sqr = 0
         for i in range(n_hidden):
@@ -345,7 +338,7 @@ def optimize(toi, visualize):
                 total_norm_sqr += weights2.grad[i, j]**2
             total_norm_sqr += bias2.grad[i]**2
 
-        print(total_norm_sqr)
+        # print(total_norm_sqr)
 
         # scale = learning_rate * min(1.0, gradient_clip / total_norm_sqr ** 0.5)
         gradient_clip = 0.2
