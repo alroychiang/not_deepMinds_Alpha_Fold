@@ -13,9 +13,9 @@ np.random.seed(0)
 real = ti.f32
 
 # ti.init(default_fp=real, arch=ti.metal, flatten_if=True)
-ti.init(default_fp=real, arch=ti.metal, debug = False, flatten_if=True)
+ti.init(default_fp=real, arch=ti.cpu, debug = False, flatten_if=True)
 max_steps = 4096
-vis_interval = 256
+vis_interval = 64
 output_vis_interval = 8
 steps = 2048 // 3
 # ensures the condition is met, else will show assertion error.
@@ -34,7 +34,6 @@ v_inc = vec()
 
 head_id = 0
 goal = vec()
-
 n_objects = 0
 # target_ball = 0
 elasticity = 0.0
@@ -66,6 +65,8 @@ center = vec()
 
 act = scalar()
 
+dt = 0.004
+learning_rate = 25
 
 def n_input_states():
     return n_sin_waves + 4 * n_objects + 2
@@ -87,40 +88,32 @@ def allocate_fields():
     ti.root.lazy_grad()
 
 
-dt = 0.004
-learning_rate = 25
-
-
 @ti.kernel
 def compute_center(t: ti.i32):
     for _ in range(1):
         c = ti.Vector([0.0, 0.0])
         for i in ti.static(range(n_objects)):
             c += x[t, i]
-        center[t] = (1.0 / n_objects) * c
+        center[t] = c / n_objects
 
 
 @ti.kernel
 def nn1(t: ti.i32):
     for i in range(n_hidden):
         actuation = 0.0
+        # 10 features
         for j in ti.static(range(n_sin_waves)):
-            actuation += weights1[i, j] * ti.sin(spring_omega * t * dt +
-                                                 2 * math.pi / n_sin_waves * j)
+            actuation += weights1[i, j] * ti.sin(spring_omega * t * dt + 2 * math.pi / n_sin_waves * j)
+        # should have 12 velocity features, 12 displacement features
         for j in ti.static(range(n_objects)):
             offset = x[t, j] - center[t]
-            # use a smaller weight since there are too many of them
             actuation += weights1[i, j * 4 + n_sin_waves] * offset[0] * 0.05
-            actuation += weights1[i,
-                                  j * 4 + n_sin_waves + 1] * offset[1] * 0.05
-            actuation += weights1[i, j * 4 + n_sin_waves + 2] * v[t,
-                                                                  j][0] * 0.05
-            actuation += weights1[i, j * 4 + n_sin_waves + 3] * v[t,
-                                                                  j][1] * 0.05
-        actuation += weights1[i, n_objects * 4 +
-                              n_sin_waves] * (goal[None][0] - center[t][0])
-        actuation += weights1[i, n_objects * 4 + n_sin_waves +
-                              1] * (goal[None][1] - center[t][1])
+            actuation += weights1[i,j * 4 + n_sin_waves + 1] * offset[1] * 0.05
+            actuation += weights1[i, j * 4 + n_sin_waves + 2] * v[t,j][0] * 0.05
+            actuation += weights1[i, j * 4 + n_sin_waves + 3] * v[t,j][1] * 0.05
+        # x and y features for goal location (2)
+        actuation += weights1[i, n_objects * 4 + n_sin_waves] * (goal[None][0] - center[t][0])
+        actuation += weights1[i, n_objects * 4 + n_sin_waves + 1] * (goal[None][1] - center[t][1])
         actuation += bias1[i]
         actuation = ti.tanh(actuation)
         hidden[t, i] = actuation
@@ -209,12 +202,11 @@ def forward(output=None, visualize=True):
         goal[None] = [0.9, 0.2]
     else:
         goal[None] = [0.1, 0.2]
-    goal[None] = [0.9, 0.2]
 
     interval = vis_interval
-    # if output:
-    #     interval = output_vis_interval
-    #     os.makedirs('mass_spring/{}/'.format(output), exist_ok=True)
+    if output:
+        interval = output_vis_interval
+        os.makedirs('mass_spring/{}/'.format(output), exist_ok=True)
 
     total_steps = steps if not output else steps * 2
 
@@ -302,7 +294,6 @@ def setup_robot(objects, springs):
         spring_actuation[i] = s[4]
 
 
-# im here.
 def optimize(toi, visualize):
     global use_toi
     use_toi = toi
@@ -363,6 +354,7 @@ def optimize(toi, visualize):
 # parser.add_argument('--iters', type=int, default=100)
 # options = parser.parse_args()
 
+
 class Options:
     robot_id = 0
     task = "train"   # or "plot"
@@ -370,16 +362,15 @@ class Options:
 
 options = Options()
 
+
 def main():
-
     setup_robot(*robots[options.robot_id]())
-
     if options.task == 'plot':
         ret = {}
         for toi in [False, True]:
             ret[toi] = []
             for i in range(5):
-                losses = optimize(toi=toi, visualize=False)
+                losses = optimize(toi=toi, visualize=True)
                 # losses = gaussian_filter(losses, sigma=3)
                 plt.plot(losses, 'g' if toi else 'r')
                 ret[toi].append(losses)
@@ -390,6 +381,8 @@ def main():
     else:
         optimize(toi=True, visualize=True)
         clear()
-        forward('final{}'.format(options.robot_id))
+        forward('final{}'.format(options.robot_id), visualize=True)
+
+
 if __name__ == '__main__':
     main()
