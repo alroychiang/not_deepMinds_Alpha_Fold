@@ -67,6 +67,7 @@ act = scalar()
 
 dt = 0.004
 learning_rate = 25
+use_toi = True
 
 def n_input_states():
     return n_sin_waves + 4 * n_objects + 2
@@ -149,9 +150,6 @@ def apply_spring_force(t: ti.i32):
         ti.atomic_add(v_inc[t + 1, b], impulse)
 
 
-use_toi = False
-
-
 @ti.kernel
 def advance_toi(t: ti.i32):
     for i in range(n_objects):
@@ -219,6 +217,8 @@ def forward(output=None, visualize=True):
             advance_toi(t)
         else:
             advance_no_toi(t)
+
+        # gui all below
 
         if (t + 1) % interval == 0 and visualize:
             gui.line(begin=(0, ground_height),
@@ -357,13 +357,30 @@ def optimize(toi, visualize):
 
 class Options:
     robot_id = 0
-    task = "train"   # or "plot"
+    task = "graph"   # or "plot" or "graph"
     iters = 100
 
 options = Options()
 
 
+def graph_losses():
+    import pickle
+    ret = pickle.load(open('losses.pkl', 'rb'))
+    for losses in ret[False]:
+        plt.plot(losses, 'r')
+    for losses in ret[True]:
+        plt.plot(losses, 'g')
+    plt.xlabel('Iteration')
+    plt.ylabel('Loss')
+    plt.title('Red = no TOI, Green = TOI')
+    plt.show()
+
+
 def main():
+    if options.task == 'graph':
+        graph_losses()
+        return
+
     setup_robot(*robots[options.robot_id]())
     if options.task == 'plot':
         ret = {}
