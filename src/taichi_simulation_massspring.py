@@ -343,6 +343,8 @@ def optimize(toi, visualize):
             for j in range(n_hidden):
                 weights2[i, j] -= scale * weights2.grad[i, j]
             bias2[i] -= scale * bias2.grad[i]
+
+        print(f"Iteration {iter} loss value: {loss[None]}")
         losses.append(loss[None])
 
     return losses
@@ -356,31 +358,13 @@ def optimize(toi, visualize):
 
 
 class Options:
-    robot_id = 0
-    task = "graph"   # or "plot" or "graph"
+    robot_id = 3 # 1 == A, 2 == B, 3 == C
+    task = "train"   # or "plot" or "graph" or "train"
     iters = 100
 
 options = Options()
 
-
-def graph_losses():
-    import pickle
-    ret = pickle.load(open('losses.pkl', 'rb'))
-    for losses in ret[False]:
-        plt.plot(losses, 'r')
-    for losses in ret[True]:
-        plt.plot(losses, 'g')
-    plt.xlabel('Iteration')
-    plt.ylabel('Loss')
-    plt.title('Red = no TOI, Green = TOI')
-    plt.show()
-
-
 def main():
-    if options.task == 'graph':
-        graph_losses()
-        return
-
     setup_robot(*robots[options.robot_id]())
     if options.task == 'plot':
         ret = {}
@@ -396,7 +380,7 @@ def main():
         pickle.dump(ret, open('losses.pkl', 'wb'))
         print("Losses saved to losses.pkl")
     else:
-        optimize(toi=True, visualize=True)
+        optimize(toi=True, visualize=True) # return value discarded
         clear()
         forward('final{}'.format(options.robot_id), visualize=True)
 

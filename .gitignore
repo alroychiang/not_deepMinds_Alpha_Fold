@@ -3,3 +3,10 @@
 final0.mp4
 final1.mp4
 mass_spring
+.venv
+.DS_Store
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+src/__pycache__/mass_spring_robot_config.cpython-311.pyc

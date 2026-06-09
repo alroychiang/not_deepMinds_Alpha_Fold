@@ -10,7 +10,8 @@ def add_object(x):
 def add_spring(a, b, length=None, stiffness=1, actuation=0.1):
     if length == None:
         length = ((objects[a][0] - objects[b][0])**2 +
-                  (objects[a][1] - objects[b][1])**2)**0.5
+                  (objects[a][1] - objects[b][1])**2 +
+                  (objects[a][2] - objects[b][2])**2)**0.5
     springs.append([a, b, length, stiffness, actuation])
 
 
@@ -21,7 +22,10 @@ mesh_springs = []
 
 def add_mesh_point(i, j):
     if (i, j) not in points:
-        id = add_object((i * 0.05 + 0.1, j * 0.05 + 0.1))
+        # Z is the up axis. Lay the sheet flat on the table: the grid spreads
+        # across the X-Y plane (config i -> world x length, j -> world y width)
+        # and sits at constant Z = ground_height (0.1) so it starts flat.
+        id = add_object((i * 0.05 + 0.1, j * 0.05 + 0.1, 0.1))
         points.append((i, j))
         point_id.append(id)
     return point_id[points.index((i, j))]
@@ -34,8 +38,8 @@ def add_mesh_spring(a, b, s, act):
     mesh_springs.append((a, b))
     add_spring(a, b, stiffness=s, actuation=act)
 
-
-def add_mesh_square(i, j, actuation):
+# actuation = 0 is just the default, function call's arg takes precedence
+def add_mesh_square(i, j, actuation=0.0, stiffness=3e4):
     a = add_mesh_point(i, j)
     b = add_mesh_point(i, j + 1)
     c = add_mesh_point(i + 1, j)
@@ -43,15 +47,10 @@ def add_mesh_square(i, j, actuation):
 
     # b d
     # a c
-    # add_mesh_spring(a, b, spring constant, actuation):
-    add_mesh_spring(a, b, 3e4, actuation)
-    add_mesh_spring(c, d, 3e4, actuation)
-
-    # connects all points including diagonals
     for i in [a, b, c, d]:
         for j in [a, b, c, d]:
             if i != j:
-                add_mesh_spring(i, j, 3e4, actuation)
+                add_mesh_spring(i, j, stiffness, actuation)
 
 
 def add_mesh_triangle(i, j, actuation=0.0):
@@ -112,12 +111,12 @@ def robotB():
 
 
 def robotA():
-    add_object([0.2, 0.1])
-    add_object([0.3, 0.13])
-    add_object([0.4, 0.1])
-    add_object([0.2, 0.2])
-    add_object([0.3, 0.2])
-    add_object([0.4, 0.2])
+    add_object([0.2, 0.0, 0.1])
+    add_object([0.3, 0.0, 0.13])
+    add_object([0.4, 0.0, 0.1])
+    add_object([0.2, 0.0, 0.2])
+    add_object([0.3, 0.0, 0.2])
+    add_object([0.4, 0.0, 0.2])
 
     s = 14000
 
@@ -139,9 +138,9 @@ def robotA():
     return objects, springs
 
 def robotE():
-    for i in range(5):
-        for j in range(5):
-            add_mesh_square(i, j, actuation=0)
+    for i in range(12):
+        for j in range(3):
+            add_mesh_square(i, j, actuation=0, stiffness=2000)
     return objects, springs
 
-robots = [robotA, robotB, robotC, robotD]
+robots = [robotA, robotB, robotC, robotD, robotE]
