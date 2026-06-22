@@ -1,5 +1,6 @@
 .venv
 .DS_Store
+.claude/settings.local.json
 final0.mp4
 final1.mp4
 mass_spring
